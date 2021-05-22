@@ -1,0 +1,48 @@
+#!/usr/bin/python3.8
+import os
+import sys
+import subprocess
+import getpass
+
+target = sys.argv[1]
+nodecmd = 'scontrol -o show node '
+jobcmd = 'scontrol -o show job '
+myjobcmd = 'squeue -u '
+cmd = ''
+
+if 'gauss' in target:
+  result = subprocess.check_output(nodecmd+target,shell=True).decode('utf-8')
+  cmd = 'node'
+elif len(target) < 3:
+  result = subprocess.check_output(nodecmd+'gauss'+target,shell=True).decode('utf-8')
+  cmd = 'node'
+elif target in 'joblist':
+  result = subprocess.check_output(myjobcmd+getpass.getuser(),shell=True).decode('utf-8')
+  cms = 'checkmyjobs'
+  print(result)
+else:
+  result = subprocess.check_output(jobcmd+target,shell=True).decode('utf-8')
+  cmd = 'job'
+
+results = result.split(' ')
+dic = {}
+for i in results:
+  if '=' in i:
+    dic[i.split('=')[0]] = i.split('=')[1]
+if cmd == 'job':
+  print('JobId = ',dic['JobId'],
+        'Jobname = ',dic['JobName'],'\n'
+        'Priority = ',dic['Priority'],'NumCPUs = ',dic['NumCPUs'],
+        'NumTasks = ',dic['NumTasks'],'\n'
+        'workdir = ',dic['WorkDir'])
+if cmd == 'node':
+  print('Nodename = ',dic['NodeName'],'\n'
+        'cpualloc = ',dic['CPUAlloc'],'\n'
+        'cputot = ',dic['CPUTot'],'\n'
+        'cpuload = ',dic['CPULoad'])
+
+if len(sys.argv) == 3:
+  if sys.argv[2] == 'go':
+    os.chdir(dic['WorkDir'])
+    os.system("/bin/bash")
+

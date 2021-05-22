@@ -1,0 +1,178 @@
+#!/usr/bin/python3.8  
+
+import os
+import sys
+import numpy as np
+
+def split_readfile_to_variables(string):
+    '''
+    delete the tail '\n'
+    replace ',', '\t', ';' by ' '
+    replace multiple space by one space
+    split with delimiter ' ' and store them in a list
+    remove empty strings from the list
+    '''
+    if not isinstance(string, str):
+        sys.exit("Error: the input must be a string.")
+    string = string.replace('\n', '')
+    string = string.replace(',', ' ').replace('\t', ' ').replace(';', ' ')
+    while '  ' in string:
+        string = string.replace('  ', ' ')
+    var_list = string.split(' ')
+    while '' in var_list:
+        var_list.remove('')
+    return var_list
+
+def read_data_dump_file(file_path, config_name):
+    atom_coor = []
+    atom_type = []
+    file = open(file_path, 'rt')
+    xy = 0.
+    xz = 0.
+    yz = 0.
+    i = 0
+    for line_index, line_str in enumerate(file):
+        if 'dat' in config_name:
+            if line_index == 2:
+                atom_num = int(split_readfile_to_variables(line_str)[0])
+            if line_index == 4:
+                xlo = float(split_readfile_to_variables(line_str)[0])
+                xhi = float(split_readfile_to_variables(line_str)[1])
+            elif line_index == 5:
+                ylo = float(split_readfile_to_variables(line_str)[0])
+                yhi = float(split_readfile_to_variables(line_str)[1])
+            elif line_index == 6:
+                zlo = float(split_readfile_to_variables(line_str)[0])
+                zhi = float(split_readfile_to_variables(line_str)[1])
+            if line_index == 7 and len(split_readfile_to_variables(line_str))>0:
+                i = 1
+                xy = float(split_readfile_to_variables(line_str)[0])
+                xz = float(split_readfile_to_variables(line_str)[1])
+                yz = float(split_readfile_to_variables(line_str)[2])
+            if line_index >= 10+i and line_index < 10+i+atom_num:
+                coorx = -float(split_readfile_to_variables(line_str)[2])
+                coory = -float(split_readfile_to_variables(line_str)[3])
+                coorz = float(split_readfile_to_variables(line_str)[4])
+                atomtype = 1
+                atom_coor.append([coorx, coory, coorz])
+                atom_type.append([atomtype])
+        else:
+            if line_index == 5:
+                xlo = float(split_readfile_to_variables(line_str)[0])
+                xhi = float(split_readfile_to_variables(line_str)[1])
+                if len(split_readfile_to_variables(line_str))==3:
+                    xy = float(split_readfile_to_variables(line_str)[2])
+                else:
+                    xy = 0.
+            elif line_index == 6:
+                ylo = float(split_readfile_to_variables(line_str)[0])
+                yhi = float(split_readfile_to_variables(line_str)[1])
+                if len(split_readfile_to_variables(line_str))==3:
+                    xz = float(split_readfile_to_variables(line_str)[2])
+                else:
+                    xz = 0.
+            elif line_index == 7:
+                zlo = float(split_readfile_to_variables(line_str)[0])
+                zhi = float(split_readfile_to_variables(line_str)[1])
+                if len(split_readfile_to_variables(line_str))==3:
+                    yz = float(split_readfile_to_variables(line_str)[2])
+                else:
+                    yz = 0.
+            if line_index >= 9:
+                xcoor = -float(split_readfile_to_variables(line_str)[2])
+                ycoor = -float(split_readfile_to_variables(line_str)[3])
+                zcoor = float(split_readfile_to_variables(line_str)[4])
+                atomtype = 1
+                atom_coor.append([xcoor, ycoor, zcoor])
+                atom_type.append([atomtype])
+        tilt = [xy, xz, yz]
+    file.close()
+    atom_type = np.array(atom_type)
+    atom_coor = np.array(atom_coor)
+    box_boundary = [[-xhi,-xlo ],
+                    [ylo, yhi],
+                    [-zhi, -zlo]]
+    return atom_coor, atom_type, box_boundary, tilt
+
+def duplicate(atom_coor, atom_type, box_boundary, duplicate_time):
+    # duplicate box boundary in z direction
+    num_atom = atom_coor.shape[0]
+    zlo = box_boundary[2][0]
+    zhi = box_boundary[2][1]
+    repeat_unit = zhi - zlo
+    new_zhi = zlo + repeat_unit * duplicate_time
+    new_box_boundary = [[box_boundary[0][0], box_boundary[0][1]],
+                        [box_boundary[1][0], box_boundary[1][1]],
+                        [zlo, new_zhi]]
+    
+    new_coor = []
+    new_type = []
+    shift = np.array([repeat_unit,0,0])
+    for i in range(duplicate_time):
+        new_coor = np.append(new_coor, np.array(atom_coor) + shift*i)
+        new_type = np.append(new_type, atom_type)
+    return new_coor.reshape((num_atom*duplicate_time,3)), new_type.reshape((num_atom*duplicate_time,1)),new_box_boundary
+
+def write_datafile(case_name, file_path, atom_coor, atom_type, box_boundary, tilt):
+    '''write datafile'''
+
+    
+    if_write_mass = False
+    num_atom = atom_coor.shape[0]
+    type_list = list(np.unique(atom_type))
+    type_list.sort()
+    num_type = len(type_list)
+    if 'dat' in case_name or '_0' in case_name:
+        filename = 'nye_per_ref.dat'
+        if 'dump' in case_name:
+            filename = 'nye_dislo.dat'
+    else:
+        filename = 'nye_dislo.dat'
+  
+    file_path_name = os.path.join(file_path, filename)
+    file = open(file_path_name,'w')     
+
+    file.write(f"{case_name}\n\n"
+               f"{num_atom} atoms\n"
+               f"{num_type} atom types\n"
+               f"{box_boundary[0][0]:>14.12f} {box_boundary[0][1]:>14.12f} xlo xhi\n"
+               f"{box_boundary[1][0]:>14.12f} {box_boundary[1][1]:>14.12f} ylo yhi\n"
+               f"{box_boundary[2][0]:>14.12f} {box_boundary[2][1]:>14.12f} zlo zhi\n"
+               f"{tilt[0]:>14.12f} {tilt[1]:>14.12f} {tilt[2]:>14.12} xy xz yz \n\n")
+
+    file.write("Atoms\n\n")
+    for i in range(num_atom):
+        file.write(f"{i+1:>8d} {int(atom_type[i]):>4d} \
+                   {atom_coor[i,0]:>14.12f} {atom_coor[i,1]:>14.12f} {atom_coor[i,2]:>14.12f}\n")
+    file.close()
+
+
+if __name__ == '__main__':
+    # read data
+    config_name = sys.argv[1]
+    path = os.getcwd()
+    file_path = os.path.join(path,config_name)
+
+    duplicate_time = int(sys.argv[3])
+    atom_coor, atom_type, box_boundary, tilt = read_data_dump_file(file_path, config_name)
+
+    # duplicate in z direction
+    new_coor, new_type, new_box_boundary = duplicate(atom_coor, atom_type, box_boundary, duplicate_time)
+
+    # write data file
+    write_datafile(config_name, path, new_coor, new_type, new_box_boundary, tilt)
+    
+    #----------new---------
+    # read data
+    config_name = sys.argv[2]
+    
+    file_path = os.path.join(path,config_name)
+
+    atom_coor, atom_type, box_boundary, tilt = read_data_dump_file(file_path, config_name)
+
+    # duplicate in z direction
+    new_coor, new_type, new_box_boundary = duplicate(atom_coor, atom_type, box_boundary, duplicate_time)
+
+    # write data file
+    write_datafile(config_name, path, new_coor, new_type, new_box_boundary, tilt)
+                                                                                            
