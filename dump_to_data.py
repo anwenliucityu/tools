@@ -33,6 +33,6 @@ def multicore(dump_path, work_path):
     pool.map(par_ave, dump_path)
 
 if __name__ == '__main__':
-    work_path = '/gauss12/home/cityu/anwenliu/scratch/dislocation_simulation/Mg/metastable_core_MEAM/dump_file'
+    work_path = '/gauss12/home/cityu/anwenliu/scratch/dislocation_simulation/Mg/metastable_core_XMEAM/dump_file'
     filenum, dump_path = fileprocess(work_path)
     multicore(dump_path, work_path)

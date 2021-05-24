@@ -1,0 +1,37 @@
+clear
+units metal
+dimension 3
+boundary f f p
+atom_style atomic
+atom_modify map array
+
+variable a loop 51
+label loop
+variable b equal (v_a-1)*1000
+read_data data_file/dump.Mg_screw_PyrII_ac_$b.dat
+
+region inner cylinder z 0 0 236.29676078927508 EDGE EDGE
+group free_atom region inner
+group freeze_atom subtract all free_atom
+fix freeze_boundary freeze_atom setforce 0.0 0.0 0.0
+
+pair_style meam/c
+pair_coeff * * /gauss12/home/cityu/anwenliu/git/anisotropic-elasticity/src/anwen_disl_aniso/potential/meam_Mg/library.meam Mg /gauss12/home/cityu/anwenliu/git/anisotropic-elasticity/src/anwen_disl_aniso/potential/meam_Mg/Mg.meam Mg
+neighbor 2.0 bin
+
+reset_timestep 0
+thermo 100
+thermo_style custom step pe lx ly lz
+
+min_style cg
+minimize 1e-25 1e-25 5000 10000
+
+shell cd emin_result
+dump 11 all custom 1 dump.Mg_screw_PyrII_ac_$b.emin mass type x y z
+dump_modify 11 element Mg sort id
+run 0
+shell cd ../
+
+print('All done')
+next a
+jump SELF loop
