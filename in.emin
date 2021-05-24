@@ -1,14 +1,15 @@
 clear
-units metal
-dimension 3
-boundary f f p
-atom_style atomic
-atom_modify map array
 
 variable a loop 51
 label loop
 variable b equal (v_a-1)*1000
 read_data data_file/dump.Mg_screw_PyrII_ac_$b.dat
+
+units metal
+dimension 3
+boundary f f p
+atom_style atomic
+atom_modify map array
 
 region inner cylinder z 0 0 236.29676078927508 EDGE EDGE
 group free_atom region inner
@@ -32,5 +33,6 @@ dump_modify 11 element Mg sort id
 run 0
 shell cd ../
 
+clear
 next a
 jump SELF loop
