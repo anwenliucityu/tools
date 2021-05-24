@@ -32,6 +32,5 @@ dump_modify 11 element Mg sort id
 run 0
 shell cd ../
 
-print('All done')
 next a
 jump SELF loop
